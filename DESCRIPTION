@@ -1,0 +1,23 @@
+Package: Entropic.Scree
+Title: Information-Theoretic Dimensionality Estimation
+Version: 1.0.1
+Authors@R: 
+    person("Terrence J.", "Lee-St. John", , "terry@enli.com.au", role = c("aut", "cre"))
+Copyright: Terrence J. Lee-St. John (Enli)
+Description: An information-theoretic diagnostic technique for estimating the 
+    intrinsic dimensionality of tabular datasets. Evaluates shared probability mass 
+    via a transformed mutual information metric. Aims to extract the Intrinsic 
+    Generative Rank (r) and structural topology. For full methodological details, 
+    see the preprint by Lee-St. John (2026) <https://zenodo.org/records/22028087>.
+URL: https://zenodo.org/records/22028087
+License: Apache License 2.0
+Encoding: UTF-8
+Imports: data.table, ggplot2, infotheo, parallel, patchwork, Rcpp
+LinkingTo: Rcpp
+Config/roxygen2/version: 8.1.0
+NeedsCompilation: yes
+Packaged: 2026-09-08 08:12:20 UTC; tjlee
+Author: Terrence J. Lee-St. John [aut, cre]
+Maintainer: Terrence J. Lee-St. John <terry@enli.com.au>
+Repository: CRAN
+Date/Publication: 2026-09-15 14:00:02 UTC

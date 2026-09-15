@@ -1,0 +1,10 @@
+6b5571972434f1614891c04d08ad6cfc *DESCRIPTION
+894154e6126cbe3a35f889e4a9bd8cfb *NAMESPACE
+572a60c65b2038d0099fb71fce6dc950 *R/EntropicScree.R
+deac99682333c222efb910d95204be9c *R/RcppExports.R
+8d5a745b7047ac69e3fd3599b4c48d73 *man/Entropic.Scree.Rd
+ddc8da3d7dedcb6bfb310a47265f17b4 *man/Update.Entropic.Scree.Rd
+e2d347f9ad519d45dd6bcf3703472671 *src/Makevars
+e2d347f9ad519d45dd6bcf3703472671 *src/Makevars.win
+eeb90589daf460d9226c954ca7777b58 *src/RcppExports.cpp
+955b935be2b37bcbe89ffa6d5c8d8119 *src/entropic_mi.cpp
