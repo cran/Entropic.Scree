@@ -2,7 +2,7 @@
 % Please edit documentation in R/EntropicScree.R
 \name{Entropic.Scree}
 \alias{Entropic.Scree}
-\title{Entropic Scree Dimensionality Estimation (v1.0.1)}
+\title{Entropic Scree Measurement Mapping and Rank Estimation}
 \usage{
 Entropic.Scree(
   data,
@@ -15,74 +15,227 @@ Entropic.Scree(
   check_collinearity = TRUE,
   triple_tap_window = 20,
   fwer_alpha = 0.01,
-  extract_eigenvectors = FALSE,
-  extract_bipolar_modules = FALSE,
-  bipolar_top_n = 0.2,
-  return_processed_data = FALSE
+  extract_eigenvectors = TRUE,
+  extract_bipolar_modules = TRUE,
+  bipolar_top_n = NULL,
+  return_processed_data = FALSE,
+  categorical_missing = c("error", "category"),
+  numeric_missing = c("error", "median_indicator")
 )
 }
 \arguments{
-\item{data}{A data.table containing the dataset to evaluate. Base data.frames are not supported.}
+\item{data}{A data.table with numeric/integer, factor, character, or logical columns and unique names. Numeric category labels should be supplied as factors if they represent nominal states. Base data.frames are not supported.}
 
-\item{low_entropy_thresh}{Numeric. Minimum marginal entropy threshold. Default is 0.05.}
+\item{low_entropy_thresh}{Numeric. Minimum marginal entropy in nats for original measurements and unprotected indicators. Default 0.05. Zero-entropy original columns are always excluded; an indicator with a retained parent is protected.}
 
-\item{num_bins}{Integer. Number of bins for discretization. Default is NULL (auto-calculated).}
+\item{num_bins}{Integer from 2 through 46340. Numeric discretization target and native counting capacity. NULL uses max(2, ceiling(bin_multiplier * N^(1/3))). It must cover every retained categorical vocabulary, including an opted-in missing state; violations are rejected. Increasing it also changes the target for numeric measurements.}
 
 \item{bin_multiplier}{Numeric. Multiplier for the automatic bin calculation. Default is 1.0.}
 
 \item{num_cores}{Integer. Number of CPU cores for OpenMP parallelization.}
 
-\item{interactive_mode}{Logical. If TRUE, displays plot and prompts user to confirm ranks.}
+\item{interactive_mode}{Logical. If TRUE, displays diagnostics and, in an interactive R session, prompts for the primary rank and Extended Signal Tail boundary.}
 
-\item{purge_constants}{Logical. If TRUE, automatically removes zero-variance variables.}
+\item{purge_constants}{Logical. If TRUE, removes constant measurements and identical duplicates before discretization.}
 
-\item{check_collinearity}{Logical. If TRUE, purges perfectly collinear variables.}
+\item{check_collinearity}{Logical. If TRUE, checks numeric measurements for exact linear dependencies and removes dependent measurements when the check can be performed.}
 
-\item{triple_tap_window}{Integer. Window size for the triple-tap heuristic. Default is 20.}
+\item{triple_tap_window}{Positive integer requested window w0 (default 20). The actual window is max(5, min(w0, floor(0.1 * m))).}
 
-\item{fwer_alpha}{Numeric. Family-wise error rate alpha threshold. Default is 0.01.}
+\item{fwer_alpha}{Numeric. Alpha used in the multiple-comparison-adjusted local t threshold. Default is 0.01; this does not establish whole-pipeline error control.}
 
-\item{extract_eigenvectors}{Logical. If TRUE, extracts and returns eigenvectors.}
+\item{extract_eigenvectors}{Logical. Defaults to TRUE. Returns all retained measurements' loadings on every selected primary informational axis, plus the full eigenvector matrix. To omit both, set this and extract_bipolar_modules to FALSE.}
 
-\item{extract_bipolar_modules}{Logical. If TRUE, forces eigenvector extraction to build topological poles.}
+\item{extract_bipolar_modules}{Logical. Defaults to TRUE. Returns positive and negative loading lists for each primary informational axis; TRUE also enables eigenvector extraction.}
 
-\item{bipolar_top_n}{Numeric. Proportion of top variables to include in poles.}
+\item{bipolar_top_n}{NULL or numeric. NULL (default) keeps every nonzero loading in its corresponding pole. A number strictly between zero and one selects up to that proportion of the retained measurement count per pole; a positive integer selects up to that many per pole. This option never truncates measurement_loadings or eigenvectors.}
 
-\item{return_processed_data}{Logical. If TRUE, includes the processed data.table in the output.}
+\item{return_processed_data}{Logical. If TRUE, returns the retained analysis table in original units only if measurements or values changed through filtering or opted-in missing-data handling. Internal MI binning/coding alone does not count as a data change. If unchanged, processed_data is NULL and processed_data_status explicitly says to use the original data. No file is written automatically.}
+
+\item{categorical_missing}{Character. "error" (default) rejects categorical missing values. "category" explicitly represents missing factor, character, or logical values as a distinct, collision-free missing state; this is not imputation of an observed category.}
+
+\item{numeric_missing}{Character. "error" (default) rejects numeric NA/NaN. "median_indicator" fills them with the column's observed median and adds a binary original-missingness companion. A wholly missing numeric column, or an infinite numeric value, is rejected under either policy.}
 }
 \value{
-A list of class \code{"entropic_scree"} containing the following components:
-\item{eigenvalues}{A numeric vector of extracted eigenvalues.}
-\item{similarity_matrix}{The double-centered mutual information matrix.}
-\item{retained_features}{A character vector of variables that passed entropy thresholds.}
-\item{bin_distributions}{A table of bin counts for the discretized data.}
-\item{R_eff}{Total Unique Probabilistic Volume scalar.}
-\item{K_log_gap}{Integer estimate for the Observed Generative Rank.}
-\item{K_triple_tap}{Integer estimate for the Extended Signal Tail.}
-\item{triple_tap_multiplier}{The local dynamic t-multiplier used in Engine B.}
-\item{K_roots}{The finalized integer representing the Intrinsic Generative Rank.}
-\item{K_extended}{The finalized integer representing the Extended Signal Tail.}
-\item{top_of_bulk}{Index marking the boundary of idiosyncratic variance.}
-\item{total_signal_volume}{Total shared signal volume scalar.}
-\item{unique_signal_volume}{Unique signal volume scalar.}
-\item{redundant_signal_volume}{Redundant signal volume scalar.}
-\item{idiosyncratic_volume}{Idiosyncratic informational variance scalar.}
-\item{AIG}{Average Informational Gravity variable equivalent.}
-\item{FSIG_final}{A numeric vector of Factor-Specific Informational Gravity.}
-\item{structural_topology_profile}{A numeric vector of relative factor gravities.}
-\item{FSIG_extended_bulk}{Extended FSIG metric utilizing the macro bulk bound.}
-\item{FSIG_extended_kaiser}{Extended FSIG metric utilizing the Kaiser bound.}
-\item{eigenvectors}{A matrix of extracted eigenvectors, if requested.}
-\item{bipolar_modules}{A structured list of topological extraction poles, if requested.}
-\item{processed_data}{The pre-processed data.table, if requested.}
+A list containing the following components:
+\item{eigenvalues}{Working spectral weights: raw eigenvalues floored at 1e-9, in descending order.}
+\item{raw_eigenvalues}{Eigenvalues of the centered information matrix before flooring.}
+\item{similarity_matrix}{The double-centered, joint-entropy-normalized mutual information matrix.}
+\item{retained_features}{Names of measurements retained after preparation and entropy filtering.}
+\item{bin_distributions}{Per-measurement lists or arrays of category/bin counts.}
+\item{centered_trace}{Sum of the diagonal of the centered information matrix.}
+\item{NSMR}{Negative Spectral Mass Ratio: absolute negative raw eigenvalue mass divided by positive raw eigenvalue mass, as a ratio.}
+\item{NSMR_percent}{Negative Spectral Mass Ratio in percentage units: exactly 100 * NSMR.}
+\item{R_eff}{Total Unique Probabilistic Volume: entropy effective rank of the entire working spectrum.}
+\item{K_log_gap}{Automatic Log-Gap recommendation for the Primary Informational Rank.}
+\item{K_triple_tap}{Automatic Triple-Tap recommendation for the inclusive Extended Signal Tail boundary.}
+\item{triple_tap_multiplier}{Nominal local t-multiplier at an accepted departure, or the full-window reference multiplier when the scan does not trigger. NA when the search is unavailable; rank_diagnostics records fallback status.}
+\item{K_roots}{Selected Primary Informational Rank; not by definition the Intrinsic Generative Rank r.}
+\item{K_extended}{Selected inclusive Extended Signal Tail boundary used for volume allocation.}
+\item{total_signal_volume}{Total Shared Signal Volume, in variable equivalents.}
+\item{unique_signal_volume}{Unique Signal Volume allocated to the selected signal region.}
+\item{redundant_signal_volume}{Redundant Signal Volume: retained measurement count minus R_eff.}
+\item{idiosyncratic_volume}{Idiosyncratic Informational Volume: remaining effective-volume allocation outside the selected signal region.}
+\item{AIG}{Average Informational Gravity, in variable equivalents per primary informational axis.}
+\item{FSIG_final}{Factor-Specific Informational Gravity allocated across the primary informational axes.}
+\item{structural_topology_profile}{Structural Topology Profile: primary-axis FSIG divided by the leading-axis FSIG.}
+\item{measurement_loadings}{Named matrix of every retained measurement's loading on every selected primary informational axis, returned by default. NULL only when both extraction options are FALSE.}
+\item{eigenvectors}{Named full eigenvector matrix, including unselected directions, returned by default. NULL only when both extraction options are FALSE.}
+\item{bipolar_modules}{Positive and negative loading lists for each selected primary axis, containing every nonzero loading per pole by default. Zero coefficients remain in measurement_loadings but belong to neither pole. List keys Axis_1, Axis_2, etc. match the measurement_loadings columns. Each contains Positive_Anchor and Negative_Anchor loading lists for that informational axis. NULL when extract_bipolar_modules is FALSE.}
+\item{processed_data}{Retained original-unit analysis data.table only when requested and changed; otherwise NULL. Internal MI codes are not returned here.}
+\item{processed_data_status}{List with requested, changed (NA if not checked), returned, message, and, when requested, changed_columns, dropped_columns and added_columns. An unchanged input produces an explicit message and no duplicate table.}
+\item{preparation_info}{Policies, input/prepared row counts, bin target, exclusions, categorical missing labels/counts/codes, observed numeric medians and parent links. Each indicator receipt lists its parents, surviving parents, retained/protected status, ordinary filter findings, entropy in nats, and 0/1 meanings (internally coded 1/2).}
+\item{missingness_indicators}{Retained raw 0/1 companion columns when analysis-data return is requested; NULL when none or not requested. Identical missingness patterns share a column.}
+\item{positive_axis_diagnostics}{Numerical tolerance, positive raw-axis indices, whether all selected axes are positive, whether all working weights equal the floor, and floor_weight_fraction = sum(eta - pmax(lambda,0))/sum(eta). These diagnostics are unavailable when the input result has no raw eigenvalues.}
+\item{rank_diagnostics}{Selection status, primary detector path, automatic boundaries, extended fallback status, search endpoint, actual local window, nominal alpha, boundary eigenvalue ratio and percent drop, and macro-stitch status. These do not assert a resolved elbow.}
+\item{auxiliary_diagnostics}{Macro boundary index (first after the gap, NA if absent), inclusive macro endpoint and source, unfloored mean-eigenvalue reference and its working-weight count, and both current inclusive auxiliary allocation cutoffs.}
+\item{FSIG_auxiliary_bulk}{Current primary-axis allocation using the broader of K_extended and the explicit macro endpoint, or mean-reference count when no macro gap exists.}
+\item{FSIG_auxiliary_mean_reference}{Current primary-axis allocation using the broader of K_extended and the count of working weights above the mean raw eigenvalue.}
 }
 \description{
-An information-theoretic diagnostic technique for estimating the
-intrinsic dimensionality of tabular datasets. Evaluates shared probability mass
-via a transformed mutual information metric. Aims to extract the Intrinsic
-Generative Rank (r) and structural topology. For full methodological details,
-see the preprint at \url{https://zenodo.org/records/22028087}.
+Maps relationships among measurements using a double-centered,
+joint-entropy-normalized mutual information matrix. Provides informational-axis
+loadings, primary and extended spectral-boundary diagnostics, and spectral-volume
+and informational-gravity summaries for discrete and discretized tabular data.
+The selected Primary Informational Rank is a candidate boundary in the
+information spectrum; a returned candidate does not establish a resolved elbow
+or correspondence with generating dimension.
+For the methods paper, see \doi{10.5281/zenodo.22028086}.
 }
+\details{
+Rows of \code{measurement_loadings} identify retained measurements and columns
+\code{Axis_1}, ..., \code{Axis_K} identify the selected primary informational
+axes, where \code{K = K_roots}. Every loading is retained, including zeros.
+These are raw signed eigenvector coefficients (equal-axis coordinates), not
+eigenvalue-scaled coordinates, measurement-to-score correlations, or native
+observation-level factor scores. For eigenvalue-scaled coordinates on a chosen
+positive-axis set, multiply each eigenvector column by the square root of its
+corresponding \code{raw_eigenvalues} value. Do not use floored working weights
+to treat nonpositive raw directions as positive geometry.
+
+The full \code{eigenvectors} matrix includes all spectral directions for later
+inspection or rank updates; its presence does not mean all directions were
+selected. Eigenvector signs are arbitrary, and repeated eigenvalues can admit
+different bases for the same subspace. Opposite poles express informational
+contrasts, not positive versus negative correlation between measurements.
+
+The Extended Signal Tail lies after \code{K_roots} and ends inclusively at
+\code{K_extended}; it is empty when the boundaries coincide. Spectral-volume
+allocations are distinct from coordinate geometry and are not measured
+proportions of causal signal or measurement error. Factor-Specific
+Informational Gravity refers to an informational axis, not an identified
+latent generating factor.
+
+\strong{Missing-data preparation.} Both missing-data options are off by
+default. Numeric medians use observed finite values only. Each generated
+companion is 0 for an originally observed value and 1 for an originally
+missing value. Identical row-by-row missingness patterns share one companion
+with all associated parent names, avoiding duplicate indicator weighting.
+Names and missing-category labels never overwrite or merge existing values.
+The original input object is not modified. Imputation and explicit missing
+states change the represented data; results are not missingness-conditioned MI.
+
+Original measurements undergo the usual constant, duplicate, numeric QR, and
+entropy checks first. Indicators do not enter the numeric QR check. An
+indicator is mandatory when any associated numeric parent survives, even
+below the entropy threshold or duplicating an encoded original measurement.
+Mandatory indicators precede orphaned indicators in filtering. When no parent
+survives, a companion faces normal binary constant, duplicate and entropy
+filtering against retained originals and mandatory companions. Constant
+required indicators are invalid. Complete columns generate no indicator.
+Protection depends on retaining at least one associated numeric parent,
+not on the indicator's marginal entropy or uniqueness. Numeric filling
+uses the ordinary sample median of observed values.
+
+\strong{Metric definitions and paper notation.} On common prepared records,
+marginal entropy is \eqn{H(X)=-\sum p(x)\ln p(x)} in nats, and
+\eqn{I(X;Y)=H(X)+H(Y)-H(X,Y)}. Joint-entropy normalization gives
+\eqn{\mathcal{M}_{ij}=I(X_i;X_j)/H(X_i,X_j)}. Double-centering produces
+\eqn{\mathcal{M}_c=\mathbf{H}\mathcal{M}\mathbf{H}}, with
+\eqn{\mathbf{H}=\mathbf{I}-\mathbf{1}\mathbf{1}^{T}/m}; its trace is the sum
+of the raw eigenvalues \eqn{\lambda_i}. The detector's mean reference is
+\eqn{\mu=\operatorname{Tr}(\mathcal{M}_c)/m}; its baseline count is
+\eqn{b=\#\{i:\eta_i>\mu\}}, not a comparison with the mean working weight.
+
+Working weights are \eqn{\eta_i=\max(\varepsilon,\lambda_i)}, with
+\eqn{\varepsilon=10^{-9}}, \eqn{S_{\varepsilon}=\sum_{i=1}^{m}\eta_i},
+and \eqn{p_i=\eta_i/S_{\varepsilon}} over all m directions.
+\eqn{R_{eff}=\exp(-\sum_i p_i\ln p_i)}. With inclusive boundaries
+\eqn{1\le k=K_{roots}\le e=K_{extended}\le m}, define
+\eqn{P_{sig}=\sum_{i=1}^{K_{extended}}\eta_i/S_{\varepsilon}}.
+Redundant Signal Volume is \eqn{m-R_{eff}}, Unique Signal Volume is
+\eqn{P_{sig}R_{eff}}, and Idiosyncratic Informational Volume is
+\eqn{(1-P_{sig})R_{eff}}. Their sum is m. Total Shared Signal Volume is
+\eqn{TSV=(m-R_{eff})+P_{sig}R_{eff}}. Average Informational Gravity is
+\eqn{\mathrm{AIG}=TSV/K_{roots}}. Factor-Specific Informational Gravity is
+\eqn{FSIG_i=TSV\eta_i/\sum_{j=1}^{K_{roots}}\eta_j}, and the Structural
+Topology Profile is \eqn{T_i=FSIG_i/FSIG_1=\eta_i/\eta_1} over primary axes.
+Printed allocation percentages use m as denominator; the spectral fraction
+\eqn{P_{sig}} is different from \eqn{TSV/m}.
+
+Raw positive mass is \eqn{m_+=\sum_i\max(0,\lambda_i)} and raw negative
+mass is \eqn{m_-=\sum_{\lambda_i<0}|\lambda_i|}. The Negative Spectral
+Mass Ratio is \eqn{\mathrm{NSMR}=m_-/m_+} for \eqn{m_+>0}, before flooring;
+\code{NSMR_percent} is exactly \eqn{100\,\mathrm{NSMR}}. Raw mass \eqn{m_+} is distinct
+from working-weight sum \eqn{S_{\varepsilon}}. Internally, \code{m_plus}
+denotes only raw positive mass and \code{S_epsilon} denotes the working sum.
+
+\strong{R identifiers.} \code{raw_eigenvalues} corresponds to \eqn{\lambda_i},
+\code{eigenvalues} to \eqn{\eta_i}, and \code{similarity_matrix} to
+\eqn{\mathcal{M}_c}. \code{K_log_gap} and \code{K_triple_tap} correspond
+to the paper's automatic recommendations \eqn{K_{log}} and \eqn{K_{tap}};
+\code{K_roots} and \code{K_extended} are the selected boundaries.
+\code{total_signal_volume} corresponds to \eqn{TSV}, \code{FSIG_final}
+to \eqn{FSIG_i}, and \code{structural_topology_profile} to \eqn{T_i}.
+\code{measurement_loadings} contains \eqn{v_{ik}} on the selected primary
+axes, with every retained measurement included. \code{Axis_1},
+\code{Axis_2}, etc. name the corresponding informational-axis pole lists.
+Auxiliary allocations use \code{FSIG_auxiliary_bulk} and
+\code{FSIG_auxiliary_mean_reference}; neither is a unit-eigenvalue Kaiser rule.
+
+The auxiliary bulk endpoint is the last axis before a detected macro gap;
+without such a gap it is b. Its allocation cutoff is max(e, endpoint).
+The mean-reference auxiliary cutoff is max(e, b). Each auxiliary applies the
+same TSV formula at its own cutoff and distributes that volume across the
+current k primary proportions. These are implementation diagnostics, not
+separately defined primary metrics in the paper. All cutoffs and their sources
+are returned and all auxiliary vectors refresh on a rank update.
+
+\strong{Numerical geometry and interpretation.} A raw axis is numerically
+positive when its eigenvalue exceeds
+\eqn{m\epsilon_{machine}\max(1,\max_i|\lambda_i|)}. An entirely degenerate
+spectrum is rejected before floor-based ranks or gravity can be presented.
+The tolerance is a numerical guard, not a spectral boundary estimator.
+Selected coefficients on null or negative raw directions may still be exported
+algebraically, with a warning and explicit status; they do not constitute a
+wholly positive-spectrum coordinate map. A working spectrum entirely at the
+floor also produces a warning. The working-weight and allocation formulas are
+not altered by this diagnostic. Local t thresholds are nominal heuristic
+thresholds, not established family-wise error control.
+
+\strong{Data return.} processed_data contains retained original-unit values,
+opted-in median fills or explicit categorical missing labels, and retained
+0/1 companions.
+Internal discretization and category codes are solely MI-estimation inputs
+and do not trigger export. Integer versus double storage alone is not a
+change in numeric observations. The status records changed, added and dropped
+columns, or explains that the original input can be reused.
+}
+\section{Output structure}{
+Axis-specific pole lists use \code{Axis_1}, \code{Axis_2}, and so on,
+matching the columns of \code{measurement_loadings}. Each pole list contains
+\code{Positive_Anchor} and \code{Negative_Anchor} coefficients.
+\code{NSMR} is a ratio; \code{NSMR_percent} is 100 times that ratio.
+
+Within \code{auxiliary_diagnostics}, \code{macro_boundary_index} identifies
+the first axis after a detected macro gap (NA when no gap is detected).
+\code{macro_endpoint} is the inclusive endpoint, and \code{macro_endpoint_source}
+identifies whether it comes from a detected gap or the mean-reference count.
+\code{bulk_allocation_cutoff} is the inclusive auxiliary allocation endpoint.
+\code{Update.Entropic.Scree()} returns a result without modifying its input
+object in place.
+}
+
 \examples{
 # Generate a small random dataset
 dummy_data <- data.table::data.table(
@@ -91,7 +244,13 @@ dummy_data <- data.table::data.table(
   V3 = rnorm(50)
 )
 
-# Run the estimation (interactive_mode MUST be FALSE for automated checks)
+# Run without interactive rank-selection prompts
 res <- Entropic.Scree(dummy_data, interactive_mode = FALSE, num_cores = 1)
+res$measurement_loadings
+# All measurements on one selected axis, with no loading cutoff:
+res$measurement_loadings[, 1, drop = FALSE]
+# Pole summaries use the same informational-axis names:
+res$bipolar_modules$Axis_1
+res$NSMR_percent
 
 }

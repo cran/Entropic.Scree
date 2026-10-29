@@ -1,0 +1,103 @@
+Entropic.Scree 1.0.2
+
+* Update the paper reference to the all-versions DOI, 10.5281/zenodo.22028086.
+* Reframe the package description and help around measurement mapping, Primary
+  Informational Rank, the Extended Signal Tail boundary, and spectral-volume and
+  informational-gravity accounting, following the October 28, 2026 preprint.
+* Return a named measurement_loadings matrix by default: every retained measurement
+  on every selected primary informational axis (through K_roots), including zeros.
+  Keep the full named eigenvectors separately for inspection and rank updates.
+* Enable bipolar loading lists by default. bipolar_top_n = NULL returns all
+  positive and negative loadings per primary axis; an explicit fraction/count
+  remains available for abbreviated pole summaries only.
+* Return raw_eigenvalues, centered_trace, NSMR (ratio), and NSMR_percent
+  (percentage units) for quantities already computed. Distinguish raw eigenvalues from floored
+  working weights and describe idiosyncratic allocation without attributing it to
+  identified sources of error.
+* Preserve public function names. Output-name changes are listed below. Core MI, detector, working-weight and primary allocation
+  formulas are unchanged on previously supported complete, nondegenerate data.
+* Update.Entropic.Scree refreshes the complete primary loading matrix from saved
+  eigenvectors. Correct its NULL-argument guard so omitted boundaries are accepted.
+* Returning eigenvectors by default increases memory and eigendecomposition work
+  compared with the former values-only default. Set both extraction flags to FALSE
+  to opt out. Saved version-1.0.1 objects without vectors do not gain loadings via
+  Update.Entropic.Scree; it does not rerun their eigendecomposition.
+
+Submission-candidate audit corrections (October 28, 2026)
+
+* Reject categorical state counts exceeding num_bins before native counting;
+  native code also rejects invalid encoded states instead of skipping them.
+* Missing inputs are rejected by default. categorical_missing = "category"
+  explicitly represents categorical missing values as a collision-free state.
+  numeric_missing = "median_indicator" fills numeric NA/NaN with its observed
+  sample median and adds a 0/1 companion. Infinite values and wholly missing
+  numeric columns are rejected. Original input objects are never modified.
+* Consolidate identical indicator patterns and retain all associated parent
+  names. Filter original measurements first. Indicators bypass numeric QR
+  and are mandatory while any parent remains, even below the entropy
+  threshold or duplicating another retained column. Required constant
+  indicators are invalid. With no retained parent, apply ordinary binary
+  constant, duplicate, and entropy filters. Return preparation and
+  protection receipts.
+* return_processed_data now returns retained ORIGINAL-UNIT data only when
+  filtering or opted-in missing handling changed columns/values. Internal
+  MI discretization/coding alone does not trigger return. An unchanged input
+  gives NULL plus an explicit processed_data_status and message. This changes
+  the former internally coded data export; no files are written automatically.
+* Recompute both auxiliary FSIG vectors on updates; expose explicit names and
+  explicit cutoff/source metadata. Correct the no-macro fallback endpoint to
+  the mean-reference count b, rather than b-1. Old aliases are removed.
+* Enforce integer ordered ranks in initial confirmation and post-hoc updates.
+  Updates no longer silently truncate/clamp invalid selections.
+* Reject numerically degenerate centered spectra before reporting resolved
+  results; disclose numerical positive axes and floor contribution. Algebraic
+  loading exports that include nonpositive directions carry explicit warnings.
+* Correct ratio, automatic/confirmed/fallback labels and nominal t-threshold
+  claims. Document every returned metric, its units, and preparation behavior.
+* Preserve the Appendix A reference Tr(M_c)/m, using the UNFLOORED trace. The
+  threshold was not changed to the mean of the floored working weights.
+
+Notation-consistency pass (October 28, 2026)
+
+* Use S_epsilon for the paper's sum of floored working weights and its matching
+  mathematical symbol in the help. Reserve m_plus for raw positive spectral mass;
+  the two quantities
+  are no longer represented by the same internal identifier.
+* Align the help equations with the paper's matrix notation, spectral floor,
+  P_sig, AIG, FSIG_i, T_i, and raw positive/negative spectral masses. Explain
+  the mapping between paper symbols and public R result identifiers.
+* Name internal selected/trailing eigenvalue sums as spectral weights rather
+  than variances. Use P_sig for the selected spectral-weight fraction.
+* Keep numerical results, defaults, and preparation behavior unchanged while
+  adopting the current output names listed below.
+
+Breaking output-name changes in 1.0.2
+
+  Earlier name                      Current access
+  bipolar_modules$Factor_1 (etc.)    bipolar_modules$Axis_1 (etc.)
+  SCDR                              NSMR_percent
+  FSIG_extended_bulk                FSIG_auxiliary_bulk
+  FSIG_extended_kaiser              FSIG_auxiliary_mean_reference
+  top_of_bulk                       auxiliary_diagnostics (see below)
+
+* The old output names are removed, not returned as duplicate aliases. Update
+  scripts to use the current names. The auxiliary FSIG mappings also replace
+  identifiers used in earlier local 1.0.2 drafts.
+* NSMR remains a ratio. NSMR_percent = 100 * NSMR preserves the units formerly
+  used by SCDR. The paper's mention of SCDR describes the earlier R output name.
+* Axis_1, Axis_2, etc. match measurement_loadings columns. Positive_Anchor and
+  Negative_Anchor remain the within-axis pole-list names.
+* top_of_bulk formerly mixed two index conventions. Use
+  auxiliary_diagnostics$macro_boundary_index for the first index after a
+  detected gap (NA if none); macro_endpoint for the inclusive endpoint;
+  macro_endpoint_source for its provenance; and bulk_allocation_cutoff for
+  the actual auxiliary allocation endpoint. These are not interchangeable.
+* Update.Entropic.Scree returns only current output names, including when it
+  receives a supported older result. Saved inputs are not modified in place.
+* This naming migration does not change the numerical estimation or allocations.
+
+Documentation presentation
+
+* Keep version comparisons and output-name migration guidance in NEWS.
+  Function help and source comments describe the current interface, required
+  inputs, numerical definitions, and behavior without development history.

@@ -2,35 +2,65 @@
 % Please edit documentation in R/EntropicScree.R
 \name{Update.Entropic.Scree}
 \alias{Update.Entropic.Scree}
-\title{Update Entropic Scree Rank Estimates}
+\title{Update Entropic Scree Spectral Boundaries}
 \usage{
 Update.Entropic.Scree(
   scree_obj,
   new_K_roots = NULL,
   new_K_extended = NULL,
-  bipolar_top_n = 0.2,
+  bipolar_top_n = NULL,
   interactive_mode = TRUE
 )
 }
 \arguments{
 \item{scree_obj}{A valid output list from \code{Entropic.Scree()}.}
 
-\item{new_K_roots}{Integer. The new Observed Generative Rank. If NULL, retains original.}
+\item{new_K_roots}{Integer. New Primary Informational Rank. NULL retains the current selection.}
 
-\item{new_K_extended}{Integer. The new Extended Signal Tail Rank. If NULL, retains original.}
+\item{new_K_extended}{Integer. New inclusive Extended Signal Tail boundary. NULL retains the current selection. The resulting pair must satisfy 1 <= K_roots <= K_extended <= m; invalid pairs are rejected, not silently clamped.}
 
-\item{bipolar_top_n}{Numeric. Proportion of top variables to include in newly extracted poles.}
+\item{bipolar_top_n}{NULL or numeric. NULL (default) keeps every nonzero loading per pole. A fraction strictly between zero and one limits each pole to that proportion of the retained measurement count; a positive integer sets a per-pole count. The complete measurement_loadings matrix is never truncated by this option.}
 
 \item{interactive_mode}{Logical. If TRUE, prints updated metric dashboards to the console.}
 }
 \value{
-A mutated list of class \code{"entropic_scree"} containing the updated
-structural topology profiles, signal volumes, and informational gravity metrics
-based on the new rank thresholds.
+The updated result list, returned invisibly, including the selected
+boundaries, primary measurement_loadings, complete pole lists by default,
+spectral-volume allocations, informational gravity, and Structural Topology
+Profile. The saved full eigenvectors and eigenvalues are unchanged.
 }
 \description{
-A companion function to modify the rank estimates of a previously
-evaluated Entropic Scree object. This allows users to recalculate informational
-gravity and structural composition without re-running the computationally
-expensive C++ mutual information engine.
+Changes the selected Primary Informational Rank and/or Extended
+Signal Tail boundary of an existing result. Recalculates spectral-volume and
+informational-gravity allocations and the primary-axis loading table without
+recomputing mutual information or the eigendecomposition.
 }
+\details{
+The returned primary-axis loading matrix uses the same saved full
+eigenvectors. All retained measurements are included on each selected axis.
+If the input result has no saved eigenvectors, loading outputs remain NULL;
+this function does not silently repeat the eigendecomposition. Pole lists
+use Axis_1, Axis_2, etc., matching the primary loading-matrix columns.
+See \code{\link{Entropic.Scree}} for definitions and interpretation.
+Both explicitly named auxiliary allocations refresh using the
+current ranks. Their explicit inclusive cutoffs and mean raw-eigenvalue
+reference are recorded in auxiliary_diagnostics. Macro metadata are
+calculated from the saved spectrum without an eigensolve. Geometry status
+is unavailable when the input has no raw eigenvalues. Preparation receipts
+and any saved original-unit analysis data remain unchanged.
+}
+\section{Output structure}{
+Axis-specific pole lists use \code{Axis_1}, \code{Axis_2}, and so on,
+matching the columns of \code{measurement_loadings}. Each pole list contains
+\code{Positive_Anchor} and \code{Negative_Anchor} coefficients.
+\code{NSMR} is a ratio; \code{NSMR_percent} is 100 times that ratio.
+
+Within \code{auxiliary_diagnostics}, \code{macro_boundary_index} identifies
+the first axis after a detected macro gap (NA when no gap is detected).
+\code{macro_endpoint} is the inclusive endpoint, and \code{macro_endpoint_source}
+identifies whether it comes from a detected gap or the mean-reference count.
+\code{bulk_allocation_cutoff} is the inclusive auxiliary allocation endpoint.
+\code{Update.Entropic.Scree()} returns a result without modifying its input
+object in place.
+}
+

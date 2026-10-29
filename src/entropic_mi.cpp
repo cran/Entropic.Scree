@@ -17,6 +17,16 @@ using namespace Rcpp;
 NumericMatrix fast_parallel_MI(IntegerMatrix mat, int num_bins, int cores) {
   int n = mat.nrow();
   int p = mat.ncol();
+  if (n < 2 || p < 2) stop("MI counting requires at least two records and measurements.");
+  if (num_bins < 2 || num_bins > 46340) stop("num_bins must be between 2 and 46340.");
+  if (cores < 1) stop("cores must be positive.");
+  // Validate on the R thread before allocating buffers or entering OpenMP.
+  // Out-of-range states must never be silently skipped from probability tables.
+  for (int j = 0; j < p; ++j) for (int i = 0; i < n; ++i) {
+    int state = mat(i, j);
+    if (state == NA_INTEGER || state < 1 || state > num_bins)
+      stop("Encoded state outside 1..num_bins, or missing state, in MI input.");
+  }
   NumericMatrix MI(p, p);
 
   std::vector<std::vector<int>> margins(p, std::vector<int>(num_bins, 0));
